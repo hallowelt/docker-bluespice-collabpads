@@ -112,10 +112,16 @@ interface ICollabSessionDAO {
 	/**
 	 * @param string $wikiScriptPath
 	 * @param string $pageTitle
-	 * @param int $pageNamespace
+	 * @return bool
+	 */
+	public function isSessionByNameExist( string $wikiScriptPath, string $pageTitle ): bool;
+
+	/**
+	 * @param string $wikiScriptPath
+	 * @param string $pageTitle
 	 * @return array
 	 */
-	public function getSessionByName( string $wikiScriptPath, string $pageTitle, int $pageNamespace );
+	public function getSessionByName( string $wikiScriptPath, string $pageTitle );
 
 	/**
 	 * @return void

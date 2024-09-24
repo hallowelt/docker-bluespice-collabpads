@@ -262,14 +262,31 @@ class MongoDBCollabSessionDAO extends MongoDBDAOBase implements ICollabSessionDA
 	/**
 	 * @inheritDoc
 	 */
-	public function getSessionByName( string $wikiScriptPath, string $pageTitle, int $pageNamespace ) {
+	public function isSessionByNameExist( string $wikiScriptPath, string $pageTitle ): bool {
 		$result = $this->collection->find(
 			[
 				's_wiki_script_path' => $wikiScriptPath,
-				's_page_title' => $pageTitle,
-				's_page_namespace' => $pageNamespace
+				's_page_title' => $pageTitle
+			]
+		);
+
+		foreach ( $result as $row ) {
+			return $row['s_id'];
+		}
+
+		return false;
+	}
+
+	/**
+	 * @inheritDoc
+	 */
+	public function getSessionByName( string $wikiScriptPath, string $pageTitle ) {
+		$result = $this->collection->find(
+			[
+				's_wiki_script_path' => $wikiScriptPath,
+				's_page_title' => $pageTitle
 			],
-			[ 'projection' => [ 's_id' => 1, 's_token' => 1, 's_page_title' => 1, 's_page_namespace' => 1 ] ]
+			[ 'projection' => [ 's_id' => 1, 's_token' => 1, 's_page_title' => 1 ] ]
 		);
 
 		$response = [];
@@ -277,7 +294,6 @@ class MongoDBCollabSessionDAO extends MongoDBDAOBase implements ICollabSessionDA
 			$response['s_id'] = json_encode( $row['s_id'] );
 			$response['s_token'] = json_encode( $row['s_token'] );
 			$response['s_page_title'] = $row['s_page_title'];
-			$response['s_page_namespace'] = $row['s_page_namespace'];
 
 			if ( isset( $row['s_wiki_script_path'] ) ) {
 				$response['s_wiki_script_path'] = $row['s_wiki_script_path'];

@@ -68,7 +68,7 @@ class OpenHandler {
 		$queryArgs = [];
 
 		parse_str( $conn->httpRequest->getURI()->getQuery(), $queryArgs );
-		$this->logger->info( 'Opening connection for: ' . $queryArgs['docName'] );
+		$this->logger->info( 'Try to open connection for: ' . $queryArgs['docName'] );
 
 		$configs = $this->createCurlRequest( $conn, $queryArgs['docName'] );
 		if ( !$configs['access'] ) {
@@ -78,28 +78,25 @@ class OpenHandler {
 		}
 		$configs['connectionId'] = $conn->resourceId;
 
-		// Check if author exists & create if not
+		// Prove if Author already exist
 		$author = $this->authorDAO->getAuthorByName( $configs['user']['userName'] );
-		if ( !$author ) {
+		if ( $author === null ) {
 			$author = $this->newAuthor( $configs['user']['userName'] );
-			$this->logger->info( "Created new author: Name '{$author['a_name']}', ID '{$author['a_id']}'" );
-		} else {
-			$this->logger->info( "Found existing author: Name '{$author['a_name']}', ID '{$author['a_id']}'" );
 		}
 
+		$this->logger->info( "Found author {$author['a_name']} (ID:{$author['a_id']})" );
 		$configs['authorId'] = $author['a_id'];
 		$configs['authorName'] = $author['a_name'];
 
-		// Check if session exists & create if not
-		$session = $this->sessionDAO->getSessionByName( $configs['wikiScriptPath'], $configs['pageTitle'], $configs['pageNamespace'] ); // phpcs:ignore Generic.Files.LineLength.TooLong
-		if ( !$session ) {
-			$this->logger->info( "No existing session found for page title '{$configs['pageTitle']}' in namespace '{$configs['pageNamespace']}'. Creating a new session." ); // phpcs:ignore Generic.Files.LineLength.TooLong
+		// Prove if Session already exist
+		$session = $this->sessionDAO->getSessionByName( $configs['wikiScriptPath'], $configs['pageTitle'] );
+		if ( count( $session ) == 0 ) {
 			$session = $this->newSession( $configs );
-			$this->logger->info( "New session created. Token '{$session['s_token']}', ID '{$session['s_id']}', Page Title '{$session['s_page_title']}', Namespace '{$session['s_page_namespace']}'" ); // phpcs:ignore Generic.Files.LineLength.TooLong
-		} else {
-			$this->logger->info( "Found existing session. Token '{$session['s_token']}', ID '{$session['s_id']}', Page Title '{$session['s_page_title']}', Namespace '{$session['s_page_namespace']}'" ); // phpcs:ignore Generic.Files.LineLength.TooLong
 		}
 
+		$this->logger->info(
+			"Found session {$session['s_token']} (ID:{$session['s_id']}) for page title {$session['s_page_title']}"
+		);
 		$configs['sessionToken'] = "" . $session['s_token'];
 		$configs['sessionId'] = $session['s_id'];
 
@@ -213,9 +210,7 @@ class OpenHandler {
 		$this->sessionDAO->setNewSession(
 			$config['wikiScriptPath'], $config['pageTitle'], $config['pageNamespace'], $config['authorId']
 		);
-		return $this->sessionDAO->getSessionByName(
-			$config['wikiScriptPath'], $config['pageTitle'], $config['pageNamespace']
-		);
+		return $this->sessionDAO->getSessionByName( $config['wikiScriptPath'], $config['pageTitle'] );
 	}
 
 	/**

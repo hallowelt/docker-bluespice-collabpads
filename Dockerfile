@@ -1,4 +1,4 @@
-FROM composer:latest AS builder
+FROM composer:latest as builder
 COPY bin /usr/src/CollabpadsBackend/bin
 COPY src /usr/src/CollabpadsBackend/src
 COPY composer.json /usr/src/CollabpadsBackend/
