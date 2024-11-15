@@ -35,6 +35,11 @@ abstract class MongoDBDAOBase {
 	private $dbAuthString = '';
 
 	/**
+	 * @var string
+	 */
+	private $defaultAuthDB = '';
+
+	/**
 	 * @var Database
 	 */
 	private $db = null;
@@ -58,6 +63,9 @@ abstract class MongoDBDAOBase {
 			$this->dbPort = $config['db-port'];
 		} else {
 			throw new Exception( 'Config "db-port" is not set!' );
+		}
+		if ( isset( $config['db-defaultauthdb'] ) ) {
+			$this->defaultAuthDB = $config['db-defaultauthdb'];
 		}
 
 		if ( $config['db-user'] !== '' ) {
@@ -87,9 +95,7 @@ abstract class MongoDBDAOBase {
 				. ':'
 				. $this->dbPort
 				. '/'
-				. $this->dbName
-				. '?authSource='
-				. $this->dbName;
+				. $this->defaultAuthDB;
 
 			$client = new Client( $connectionString );
 			$this->db = $client->selectDatabase( $this->dbName );

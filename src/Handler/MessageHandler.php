@@ -2,12 +2,16 @@
 
 namespace MediaWiki\Extension\CollabPads\Backend\Handler;
 
+use Exception;
 use MediaWiki\Extension\CollabPads\Backend\ConnectionList;
 use MediaWiki\Extension\CollabPads\Backend\EventType;
 use MediaWiki\Extension\CollabPads\Backend\IAuthorDAO;
 use MediaWiki\Extension\CollabPads\Backend\ICollabSessionDAO;
+use MediaWiki\Extension\CollabPads\Backend\Model\Change;
+use MediaWiki\Extension\CollabPads\Backend\Rebaser;
 use Psr\Log\LoggerInterface;
 use Ratchet\ConnectionInterface;
+use Throwable;
 
 class MessageHandler {
 	use BackendHandlerTrait;
@@ -27,35 +31,55 @@ class MessageHandler {
 	 */
 	private $logger;
 
+	/** @var Rebaser */
+	private Rebaser $rebaser;
+
+	/** @var array */
+	private array $config;
+
 	/**
 	 * @param IAuthorDAO $authorDAO
 	 * @param ICollabSessionDAO $sessionDAO
 	 * @param LoggerInterface $logger
+	 * @param Rebaser $rebaser
+	 * @param array $config
 	 */
-	public function __construct( IAuthorDAO $authorDAO, ICollabSessionDAO $sessionDAO, LoggerInterface $logger ) {
+	public function __construct(
+		IAuthorDAO $authorDAO, ICollabSessionDAO $sessionDAO, LoggerInterface $logger, Rebaser $rebaser, array $config
+	) {
 		$this->authorDAO = $authorDAO;
 		$this->sessionDAO = $sessionDAO;
-
 		$this->logger = $logger;
+		$this->rebaser = $rebaser;
+		$this->config = $config;
 	}
 
 	/**
-	 * @param ConnectionInterface $from
-	 * @param string $msg
-	 * @param ConnectionList $connectionList
+	 * Handles incoming messages, processes events, and routes them to appropriate actions.
+	 *
+	 * @param ConnectionInterface $from Source connection of the incoming message
+	 * @param string $msg Raw message received
+	 * @param ConnectionList $connectionList List of connections for message distribution
 	 * @return void
+	 * @throws Exception
 	 */
 	public function handle( ConnectionInterface $from, $msg, ConnectionList $connectionList ): void {
 		$relevantConnections = $notRelevantConnections = [];
 
-		// split the request into components
+		$this->logger->debug( "Received raw message: $msg" );
+		// Parse incoming message to extract eventID, eventName, and optional eventData
 		preg_match( '/(?<eventId>\w+)(\[\"(?<eventName>\w+)\"(?:\,(?<eventData>[\s\S]+))?\])?/', $msg, $msgArgs );
-		// setting main configs for request response
+		// Add additional connection and author details
 		$msgArgs['connectionId'] = $from->resourceId;
-		$msgArgs['authorId'] = $this->authorDAO->getAuthorByConnection( $from->resourceId )['a_id'];
+		$author = $this->authorDAO->getAuthorByConnection( $from->resourceId );
+		if ( !$author ) {
+			$this->logger->error( "Author not found for connection ID: {$msgArgs['connectionId']}" );
+			return;
+		}
+		$msgArgs['authorId'] = $author->getId();
 		$msgArgs['sessionId'] = $this->authorDAO->getSessionByConnection( $from->resourceId );
 
-		$this->logger->debug( "Received message: " . json_encode( $msgArgs ) );
+		$message = null;
 		switch ( $msgArgs['eventId'] ) {
 			case EventType::IS_ALIVE:
 				$this->logger->debug( "Received keep-alive message from {$msgArgs['connectionId']}" );
@@ -82,7 +106,34 @@ class MessageHandler {
 						);
 						break;
 					case 'submitChange':
-						$message = $this->newChange( $msgArgs );
+						try {
+							$eventData = $this->parseEventData( $msgArgs );
+							if ( !$eventData ) {
+								throw new Exception( 'Error parsing eventData: ' . json_encode( $msgArgs ) );
+							}
+							$change = $this->createChange( $eventData );
+							if ( !$change ) {
+								throw new Exception( 'Error creating change: ' . json_encode( $eventData ) );
+							}
+							$change = $this->rebaser->applyChange(
+								$msgArgs['sessionId'], $author, $eventData['backtrack'] ?? 0, $change
+							);
+						} catch ( Throwable $e ) {
+							// Original implementation did not catch exceptions, it would only not emit a message
+							// if rebasing cannot be done in expected way. Any unexpected errors would be thrown
+							$this->logger->error( "Error processing change: " . $e->getMessage(), [
+								'backtrace' => $e->getTraceAsString(),
+								'line' => $e->getLine(),
+							] );
+
+							return;
+						}
+
+						if ( !$change->isEmpty() ) {
+							$message = $this->newChange( $msgArgs['sessionId'], $change );
+						} else {
+							$this->logger->error( "Change is empty, skipping" );
+						}
 						break;
 					case 'deleteSession':
 						$message = $this->deleteSession( $msgArgs['authorId'] );
@@ -108,12 +159,12 @@ class MessageHandler {
 						// logevents from users will not be processed
 						return;
 					default:
-						$this->logger->error( "Unknown ContentName:{$msgArgs['eventName']}" );
+						$this->logger->error( "Unknown event name: {$msgArgs['eventName']}" );
 						return;
 				}
 				break;
 			default:
-				$this->logger->error( "Unknown EventType:{$msgArgs['eventId']}" );
+				$this->logger->error( "Unknown event type: {$msgArgs['eventId']}" );
 				return;
 		}
 
@@ -147,7 +198,7 @@ class MessageHandler {
 		if ( $author ) {
 			$this->sessionDAO->deactivateAuthor( $msgArgs['sessionId'], $authorActive, $msgArgs['authorId'] );
 			$this->authorDAO->deleteConnection( $msgArgs['connectionId'], $msgArgs['authorId'] );
-
+			$this->sessionDAO->clearAuthorRebaseData( $msgArgs['sessionId'], $msgArgs['authorId'] );
 			return $authorActive ? "" : $this->response( EventType::CONTENT, 'authorDisconnect', $author[ 'id' ] );
 		}
 
@@ -185,6 +236,7 @@ class MessageHandler {
 			$this->sessionDAO->changeAuthorDataInSession( $msgArgs['sessionId'], $msgArgs['authorId'], $key, $value );
 		}
 
+		$this->sessionDAO->clearAuthorRebaseData( $msgArgs['sessionId'], $msgArgs['authorId'] );
 		$author = $this->sessionDAO->getAuthorInSession( $msgArgs['sessionId'], $msgArgs['authorId'] );
 		$realName = ( isset( $author['value']['realName'] ) ) ? $author['value']['realName'] : '';
 
@@ -217,46 +269,55 @@ class MessageHandler {
 	}
 
 	/**
-	 * @param array $msgArgs
+	 * @param int $sessionId
+	 * @param Change $change
 	 * @return string
 	 */
-	private function newChange( array $msgArgs ): string {
-		$rawJson = $msgArgs['eventData'];
-		$event = json_decode( $rawJson, true );
+	private function newChange( int $sessionId, Change $change ): string {
+		$changeData = json_encode( $change, JSON_UNESCAPED_SLASHES );
+		$this->logger->debug( 'Emit change', [ 'sessionId' => $sessionId, 'change' => $changeData ] );
+		return $this->response( EventType::CONTENT, 'newChange', $changeData );
+	}
 
+	/**
+	 * @param array $eventData
+	 * @return Change|null
+	 */
+	private function createChange( array $eventData ): ?Change {
+		if ( isset( $eventData['change'] ) ) {
+			return new Change(
+				$eventData['change']['start'],
+				$eventData['change']['transactions'] ?? [],
+				$eventData['change']['selections'] ?? [],
+				$eventData['change']['stores'] ?? []
+			);
+		}
+
+		return null;
+	}
+
+	/**
+	 * @param array $args
+	 * @return array|null
+	 */
+	private function parseEventData( array $args ): ?array {
+		$rawJson = $args['eventData'] ?? null;
+		if ( !$rawJson ) {
+			$this->logger->error( "Missing eventData in message", $args );
+			return null;
+		}
+		$eventData = json_decode( $rawJson, true );
 		if ( json_last_error() === JSON_ERROR_UTF16 ) {
-			$this->logger->debug( 'JSON_ERROR_UTF16... fixing Surrogate Pairs' );
+			$this->logger->info( 'JSON_ERROR_UTF16... fixing Surrogate Pairs' );
 			$cleanedJson = $this->fixSurrogatePairs( $rawJson );
-			$event = json_decode( $cleanedJson, true );
+			$eventData = json_decode( $cleanedJson, true );
 		}
 
 		if ( json_last_error() !== JSON_ERROR_NONE ) {
 			$this->logger->error( 'JSON decode error: ' . json_last_error_msg() );
-			return '';
+			return null;
 		}
-
-		if ( isset( $event['change'] ) ) {
-			$change = $event['change'];
-			if ( !empty( $change['transactions'] ) ) {
-				foreach ( $change['transactions'] as $transaction ) {
-					$this->sessionDAO->setChangeInHistory( $msgArgs['sessionId'], $transaction );
-				}
-
-				if ( isset( $change['stores'] ) ) {
-					foreach ( $change['stores'] as $store ) {
-						if ( $store ) {
-							$this->sessionDAO->setChangeInStores( $msgArgs['sessionId'], $store );
-						}
-					}
-				}
-			}
-
-			$changeData = json_encode( $change, JSON_UNESCAPED_SLASHES );
-		} else {
-			return '';
-		}
-
-		return $this->response( EventType::CONTENT, 'newChange', $changeData );
+		return $eventData;
 	}
 
 	/**

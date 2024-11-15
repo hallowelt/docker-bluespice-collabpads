@@ -2,6 +2,9 @@
 
 namespace MediaWiki\Extension\CollabPads\Backend;
 
+use MediaWiki\Extension\CollabPads\Backend\Model\Author;
+use MediaWiki\Extension\CollabPads\Backend\Model\Change;
+
 interface ICollabSessionDAO {
 
 	/**
@@ -42,9 +45,9 @@ interface ICollabSessionDAO {
 	 * @param int $sessionId
 	 * @param int $authorId
 	 * @param string $authorData
-	 * @param string $authorValue
+	 * @param mixed $authorValue
 	 */
-	public function changeAuthorDataInSession( int $sessionId, int $authorId, string $authorData, string $authorValue );
+	public function changeAuthorDataInSession( int $sessionId, int $authorId, string $authorData, mixed $authorValue );
 
 	/**
 	 * @param int $sessionId
@@ -59,18 +62,6 @@ interface ICollabSessionDAO {
 	 * @param int $authorId
 	 */
 	public function deactivateAuthor( int $sessionId, bool $authorActive, int $authorId );
-
-	/**
-	 * @param int $sessionId
-	 * @param mixed $store
-	 */
-	public function setChangeInStores( int $sessionId, $store );
-
-	/**
-	 * @param int $sessionId
-	 * @param mixed $change
-	 */
-	public function setChangeInHistory( int $sessionId, $change );
 
 	/**
 	 * @param int $sessionId
@@ -121,4 +112,44 @@ interface ICollabSessionDAO {
 	 * @return void
 	 */
 	public function cleanConnections();
+
+	/**
+	 * @param int $sessionId
+	 * @param Author $author
+	 * @return Change|null
+	 */
+	public function getAuthorContinueBase( int $sessionId, Author $author ): ?Change;
+
+	/**
+	 * @param int $sessionId
+	 * @param Author $author
+	 * @return int
+	 */
+	public function getAuthorRejections( int $sessionId, Author $author ): int;
+
+	/**
+	 * @param int $sessionId
+	 * @return array
+	 */
+	public function getFullSelectionsFromSession( int $sessionId ): array;
+
+	/**
+	 * @param int $sessionId
+	 * @return Change
+	 */
+	public function getChange( int $sessionId ): Change;
+
+	/**
+	 * @param int $sessionId
+	 * @param Change $change
+	 * @return mixed
+	 */
+	public function replaceHistory( int $sessionId, Change $change );
+
+	/**
+	 * @param int $sessionId
+	 * @param int $authorId
+	 * @return mixed
+	 */
+	public function clearAuthorRebaseData( int $sessionId, int $authorId );
 }

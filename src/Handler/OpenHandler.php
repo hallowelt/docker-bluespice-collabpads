@@ -8,6 +8,7 @@ use MediaWiki\Extension\CollabPads\Backend\ConnectionList;
 use MediaWiki\Extension\CollabPads\Backend\EventType;
 use MediaWiki\Extension\CollabPads\Backend\IAuthorDAO;
 use MediaWiki\Extension\CollabPads\Backend\ICollabSessionDAO;
+use MediaWiki\Extension\CollabPads\Backend\Model\Author;
 use Psr\Log\LoggerInterface;
 use Ratchet\ConnectionInterface;
 
@@ -82,13 +83,13 @@ class OpenHandler {
 		$author = $this->authorDAO->getAuthorByName( $configs['user']['userName'] );
 		if ( !$author ) {
 			$author = $this->newAuthor( $configs['user']['userName'] );
-			$this->logger->info( "Created new author: Name '{$author['a_name']}', ID '{$author['a_id']}'" );
+			$this->logger->info( "Created new author: Name '{$author->getName()}', ID '{$author->getId()}'" );
 		} else {
-			$this->logger->info( "Found existing author: Name '{$author['a_name']}', ID '{$author['a_id']}'" );
+			$this->logger->info( "Found existing author: Name '{$author->getName()}', ID '{$author->getId()}'" );
 		}
 
-		$configs['authorId'] = $author['a_id'];
-		$configs['authorName'] = $author['a_name'];
+		$configs['authorId'] = $author->getId();
+		$configs['authorName'] = $author->getName();
 
 		// Check if session exists & create if not
 		$session = $this->sessionDAO->getSessionByName( $configs['wikiScriptPath'], $configs['pageTitle'], $configs['pageNamespace'] ); // phpcs:ignore Generic.Files.LineLength.TooLong
@@ -198,11 +199,17 @@ class OpenHandler {
 
 	/**
 	 * @param string $authorName
-	 * @return array
+	 * @return Author
+	 * @throws Exception
 	 */
-	private function newAuthor( string $authorName ) {
+	private function newAuthor( string $authorName ): Author {
 		$this->authorDAO->setNewAuthor( $authorName );
-		return $this->authorDAO->getAuthorByName( $authorName );
+		$author = $this->authorDAO->getAuthorByName( $authorName );
+		if ( !$author ) {
+			$this->logger->error( "Could not create new author for name $authorName" );
+			throw new Exception( "Could not create new author for name $authorName" );
+		}
+		return $author;
 	}
 
 	/**
@@ -223,7 +230,6 @@ class OpenHandler {
 	 */
 	private function getSettingsString(): string {
 		$settingsArray = [
-			'sid' => "9mbmwV5MzVClKxBSpAAI",
 			'upgrades' => [],
 			'pingInterval' => $this->serverConfigs['ping-interval'],
 			'pingTimeout' => $this->serverConfigs['ping-timeout']
@@ -297,7 +303,7 @@ class OpenHandler {
 				"start" => 0,
 				"transactions" => $this->sessionDAO->getFullHistoryFromSession( $config['sessionId'] ) ?: [],
 				"stores" => $this->sessionDAO->getFullStoresFromSession( $config['sessionId'] ) ?: [],
-				"selections" => []
+				"selections" => $this->sessionDAO->getFullSelectionsFromSession( $config['sessionId'] ) ?: []
 			],
 			"authors" => $sessionAuthors
 		];

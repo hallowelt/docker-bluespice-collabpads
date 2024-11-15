@@ -10,6 +10,7 @@ use MediaWiki\Extension\CollabPads\Backend\ConnectionList;
 use MediaWiki\Extension\CollabPads\Backend\DAO\MongoDBAuthorDAO;
 use MediaWiki\Extension\CollabPads\Backend\DAO\MongoDBCollabSessionDAO;
 use MediaWiki\Extension\CollabPads\Backend\Handler\OpenHandler;
+use MediaWiki\Extension\CollabPads\Backend\Model\Author;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\StreamInterface;
 use Psr\Log\LoggerInterface;
@@ -85,16 +86,16 @@ class OpenHandlerTest extends TestCase {
 	 */
 	public function testSuccess() {
 		$authorDAOMock = $this->createMock( MongoDBAuthorDAO::class );
-		$authorDAOMock->method( 'getAuthorByName' )->willReturn( [
-			'a_name' => $this->userName,
-			'a_id' => $this->authorId
-		] );
+		$authorDAOMock->method( 'getAuthorByName' )->willReturn(
+			new Author( $this->authorId, $this->userName )
+		);
 
 		$sessionDAOMock = $this->createMock( MongoDBCollabSessionDAO::class );
 		$sessionDAOMock->method( 'getSessionByName' )->willReturn( [
 			's_token' => $this->sessionToken,
 			's_id' => $this->sessionId,
-			's_page_title' => $this->pageTitle
+			's_page_title' => $this->pageTitle,
+			's_page_namespace' => NS_MAIN,
 		] );
 		$sessionDAOMock->method( 'getAuthorInSession' )->willReturn( [
 			'id' => $this->authorId,
@@ -124,6 +125,7 @@ class OpenHandlerTest extends TestCase {
 				'userName' => $this->userName
 			],
 			'pageTitle' => $this->pageTitle,
+			'pageNamespace' => NS_MAIN,
 			'message' => 'Access granted!'
 		] );
 
@@ -155,7 +157,7 @@ class OpenHandlerTest extends TestCase {
 		$connectionListMock = $this->createMock( ConnectionList::class );
 
 		$settingsResponse = [
-			'sid' => "9mbmwV5MzVClKxBSpAAI",
+			// 'sid' => "9mbmwV5MzVClKxBSpAAI",
 			'upgrades' => [],
 			'pingInterval' => $this->serverConfigs['ping-interval'],
 			'pingTimeout' => $this->serverConfigs['ping-timeout']
@@ -177,6 +179,7 @@ class OpenHandlerTest extends TestCase {
 			'authors' => [
 				$this->authorId => [
 					'name' => $this->userName,
+					'realName' => '',
 					'color' => 'some-color'
 				]
 			]

@@ -3,6 +3,7 @@
 namespace MediaWiki\Extension\CollabPads\Backend\DAO;
 
 use MediaWiki\Extension\CollabPads\Backend\IAuthorDAO;
+use MediaWiki\Extension\CollabPads\Backend\Model\Author;
 
 class MongoDBAuthorDAO extends MongoDBDAOBase implements IAuthorDAO {
 
@@ -55,12 +56,13 @@ class MongoDBAuthorDAO extends MongoDBDAOBase implements IAuthorDAO {
 	public function getSessionByConnection( int $connectionId ): int {
 		$result = $this->collection->find(
 			[ 'a_sessions.c_id' => $connectionId ],
-			[ 'projection' => [ 'a_sessions.s_id.$' => 1 ] ]
+			[ 'projection' => [ 'a_sessions.$' => 1 ] ]
 		);
 
 		foreach ( $result as $row ) {
 			return $row["a_sessions"][0]["s_id"];
 		}
+		return 0;
 	}
 
 	/**
@@ -72,8 +74,9 @@ class MongoDBAuthorDAO extends MongoDBDAOBase implements IAuthorDAO {
 		);
 
 		foreach ( $result as $row ) {
-			return $row;
+			return new Author( $row['a_id'], $row['a_name'] );
 		}
+		return null;
 	}
 
 	/**
@@ -92,6 +95,7 @@ class MongoDBAuthorDAO extends MongoDBDAOBase implements IAuthorDAO {
 			}
 			return $output;
 		}
+		return [];
 	}
 
 	/**
@@ -103,8 +107,9 @@ class MongoDBAuthorDAO extends MongoDBDAOBase implements IAuthorDAO {
 		);
 
 		foreach ( $result as $row ) {
-			return $row;
+			return new Author( $row['a_id'], $authorName );
 		}
+		return null;
 	}
 
 	/**
@@ -116,8 +121,9 @@ class MongoDBAuthorDAO extends MongoDBDAOBase implements IAuthorDAO {
 		);
 
 		foreach ( $result as $row ) {
-			return $row;
+			return new Author( $authorId, $row['a_name'] );
 		}
+		return null;
 	}
 
 	/**

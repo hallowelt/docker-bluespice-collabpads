@@ -50,9 +50,11 @@ class Socket implements MessageComponentInterface {
 	 * @param IAuthorDAO $authorDAO
 	 * @param ICollabSessionDAO $sessionDAO
 	 * @param LoggerInterface $logger
+	 * @param Rebaser $rebaser
 	 */
 	public function __construct(
-		$config, $httpClient, IAuthorDAO $authorDAO, ICollabSessionDAO $sessionDAO, LoggerInterface $logger
+		$config, $httpClient, IAuthorDAO $authorDAO,
+		ICollabSessionDAO $sessionDAO, LoggerInterface $logger, Rebaser $rebaser
 	) {
 		$this->logger = $logger;
 
@@ -62,7 +64,7 @@ class Socket implements MessageComponentInterface {
 		$this->sessionDAO->cleanConnections();
 
 		$this->openHandler = new OpenHandler( $authorDAO, $sessionDAO, $config, $httpClient, $logger );
-		$this->messageHandler = new MessageHandler( $authorDAO, $sessionDAO, $logger );
+		$this->messageHandler = new MessageHandler( $authorDAO, $sessionDAO, $logger, $rebaser, $config );
 
 		$this->connectionList = new ConnectionList();
 	}

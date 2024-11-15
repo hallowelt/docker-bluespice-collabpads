@@ -8,6 +8,9 @@ use MediaWiki\Extension\CollabPads\Backend\DAO\MongoDBCollabSessionDAO;
 use MediaWiki\Extension\CollabPads\Backend\Handler\MessageHandler;
 use MediaWiki\Extension\CollabPads\Backend\IAuthorDAO;
 use MediaWiki\Extension\CollabPads\Backend\ICollabSessionDAO;
+use MediaWiki\Extension\CollabPads\Backend\Model\Author;
+use MediaWiki\Extension\CollabPads\Backend\Model\Change;
+use MediaWiki\Extension\CollabPads\Backend\Rebaser;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Ratchet\ConnectionInterface;
@@ -74,7 +77,10 @@ class MessageHandlerTest extends TestCase {
 		$this->authorDAOMock->expects( $this->once() )->method( 'deleteConnection' )
 			->with( $initiatorConnection['connectionId'], $initiatorConnection['authorId'] );
 
-		$messageHandler = new MessageHandler( $this->authorDAOMock, $this->sessionDAOMock, $this->loggerMock );
+		$rebaserMock = $this->createMock( Rebaser::class );
+		$messageHandler = new MessageHandler(
+			$this->authorDAOMock, $this->sessionDAOMock, $this->loggerMock, $rebaserMock
+		);
 		$messageHandler->handle( $this->initiatorConnectionMock, $messageFromClient, $connectionList );
 	}
 
@@ -142,7 +148,10 @@ class MessageHandlerTest extends TestCase {
 
 		$this->initTest( $authorConnections, $initiatorConnection, $sessionId );
 
-		$messageHandler = new MessageHandler( $this->authorDAOMock, $this->sessionDAOMock, $this->loggerMock );
+		$rebaserMock = $this->createMock( Rebaser::class );
+		$messageHandler = new MessageHandler(
+			$this->authorDAOMock, $this->sessionDAOMock, $this->loggerMock, $rebaserMock
+		);
 		$messageHandler->handle( $this->initiatorConnectionMock, $messageFromClient, $connectionList );
 	}
 
@@ -217,6 +226,7 @@ class MessageHandlerTest extends TestCase {
 			'id' => $initiatorConnection['authorId'],
 			'value' => [
 				'name' => $authorData['name'],
+				'realName' => '',
 				'color' => $authorData['color']
 			]
 		] );
@@ -225,7 +235,10 @@ class MessageHandlerTest extends TestCase {
 		$this->sessionDAOMock->expects( $this->once() )->method( 'changeAuthorDataInSession' )
 			->with( $sessionId, $initiatorConnection['authorId'], 'color', $authorData['color'] );
 
-		$messageHandler = new MessageHandler( $this->authorDAOMock, $this->sessionDAOMock, $this->loggerMock );
+		$rebaserMock = $this->createMock( Rebaser::class );
+		$messageHandler = new MessageHandler(
+			$this->authorDAOMock, $this->sessionDAOMock, $this->loggerMock, $rebaserMock
+		);
 		$messageHandler->handle( $this->initiatorConnectionMock, $messageFromClient, $connectionList );
 	}
 
@@ -267,7 +280,7 @@ class MessageHandlerTest extends TestCase {
 					'color' => 'B96091'
 				],
 				// Message client should get in response
-				'42["authorChange",{"authorId":2,"authorData":{"name":"TestUser1","color":"B96091"}}]',
+				'42["authorChange",{"authorId":2,"authorData":{"name":"TestUser1","realName":"","color":"B96091"}}]',
 				// Client connections which should eventually receive response from the server
 				[
 					100,
@@ -300,16 +313,15 @@ class MessageHandlerTest extends TestCase {
 
 		$this->initTest( $authorConnections, $initiatorConnection, $sessionId );
 
-		$changeData = json_decode( $changeDataRaw, true );
-
-		// Make sure that transaction is added to the DB
-		$this->sessionDAOMock->expects( $this->once() )->method( 'setChangeInHistory' )
-			->with( $sessionId, $changeData['transactions'][0] );
-
-		$this->sessionDAOMock->expects( $this->once() )->method( 'setChangeInStores' )
-			->with( $sessionId, null );
-
-		$messageHandler = new MessageHandler( $this->authorDAOMock, $this->sessionDAOMock, $this->loggerMock );
+		$rebaserMock = $this->createMock( Rebaser::class );
+		$rebaserMock->method( 'applyChange' )->willReturnCallback(
+			static function ( int $sessionId, Author $author, int $backtrack, Change $change ) {
+				return $change;
+			}
+		);
+		$messageHandler = new MessageHandler(
+			$this->authorDAOMock, $this->sessionDAOMock, $this->loggerMock, $rebaserMock
+		);
 		$messageHandler->handle( $this->initiatorConnectionMock, $messageFromClient, $connectionList );
 	}
 
@@ -345,13 +357,13 @@ class MessageHandlerTest extends TestCase {
 				128888,
 				// Message received from the client
 				// phpcs:ignore Generic.Files.LineLength.TooLong
-				'42["submitChange",{"backtrack":0,"change":{"start":5,"transactions":[{"o":[47,["","s"],58],"a":1}],"selections":{"1":{"type":"linear","range":{"type":"range","from":48,"to":48}}}}}]',
+				'42["submitChange",{"backtrack":0,"change":{"start":5,"transactions":[{"o":[47,["","s"],58],"a":1}],"selections":{"1":{"type":"linear","range":{"type":"range","from":48,"to":48}}}},"stores":[]}]',
 				// Change actual data
 				// phpcs:ignore Generic.Files.LineLength.TooLong
 				'{"start":5,"transactions":[{"o":[47,["","s"],58],"a":1}],"selections":{"1":{"type":"linear","range":{"type":"range","from":48,"to":48}}}}',
 				// Message client should get in response
 				// phpcs:ignore Generic.Files.LineLength.TooLong
-				'42["newChange",{"start":5,"transactions":[{"o":[47,["","s"],58],"a":1}],"selections":{"1":{"type":"linear","range":{"type":"range","from":48,"to":48}}}}]',
+				'42["newChange",{"start":5,"transactions":[{"o":[47,["","s"],58],"a":1}],"selections":{"1":{"type":"linear","range":{"type":"range","from":48,"to":48}}},"stores":[]}]',
 				// Client connections which should eventually receive response from the server
 				[
 					100,
@@ -383,7 +395,10 @@ class MessageHandlerTest extends TestCase {
 		// Make sure that session is deleted in result
 		$this->sessionDAOMock->expects( $this->once() )->method( 'deleteSession' )->with( $sessionId );
 
-		$messageHandler = new MessageHandler( $this->authorDAOMock, $this->sessionDAOMock, $this->loggerMock );
+		$rebaserMock = $this->createMock( Rebaser::class );
+		$messageHandler = new MessageHandler(
+			$this->authorDAOMock, $this->sessionDAOMock, $this->loggerMock, $rebaserMock
+		);
 		$messageHandler->handle( $this->initiatorConnectionMock, $messageFromClient, $connectionList );
 	}
 
@@ -436,7 +451,7 @@ class MessageHandlerTest extends TestCase {
 
 		$this->authorDAOMock = $this->createMock( MongoDBAuthorDAO::class );
 		$this->authorDAOMock->method( 'getAuthorByConnection' )->willReturn(
-			[ 'a_id' => $initiatorConnection['authorId'] ]
+			new Author( $initiatorConnection['authorId'], '' )
 		);
 		$this->authorDAOMock->method( 'getSessionByConnection' )->willReturn( $sessionId );
 

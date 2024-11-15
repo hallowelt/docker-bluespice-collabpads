@@ -2,6 +2,8 @@
 
 namespace MediaWiki\Extension\CollabPads\Backend;
 
+use MediaWiki\Extension\CollabPads\Backend\Model\Author;
+
 interface IAuthorDAO {
 
 	/**
@@ -30,7 +32,7 @@ interface IAuthorDAO {
 
 	/**
 	 * @param int $connectionId
-	 * @return array
+	 * @return Author|null
 	 */
 	public function getAuthorByConnection( int $connectionId );
 
@@ -43,13 +45,13 @@ interface IAuthorDAO {
 
 	/**
 	 * @param string $authorName
-	 * @return array
+	 * @return Author|null
 	 */
 	public function getAuthorByName( string $authorName );
 
 	/**
 	 * @param int $authorId
-	 * @return array
+	 * @return ?Author
 	 */
 	public function getAuthorById( int $authorId );
 
