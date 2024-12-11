@@ -210,6 +210,7 @@ class MessageHandler {
 	 * @return string
 	 */
 	private function saveRevision( int $authorId ): string {
+		$this->logger->info( "Author (ID:$authorId) saved revision" );
 		return $this->response( EventType::CONTENT, 'saveRevision', $authorId );
 	}
 
