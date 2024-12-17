@@ -152,7 +152,7 @@ class OpenHandler {
 		$pageName = $docNameParts[2];
 
 		$url = $this->serverConfigs['baseurl'] . $scriptPath . "/rest.php/collabpads/acl/" .
-			str_replace( "/", "|",  $pageName ) . '/' . $accessToken;
+			str_replace( "/", "|", $pageName ) . '/' . $accessToken;
 		$this->logger->info( "Calling: {$url}" );
 
 		try {

@@ -97,7 +97,7 @@ class Transaction implements \JsonSerializable {
 		$expanded = [];
 		foreach ( $ops as $op ) {
 			if ( is_numeric( $op ) ) {
-				$expanded[] = [ 'type' => 'retain' , 'length' => $op ];
+				$expanded[] = [ 'type' => 'retain', 'length' => $op ];
 				continue;
 			}
 			if ( static::isLinearArray( $op ) ) {

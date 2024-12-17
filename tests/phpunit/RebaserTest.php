@@ -47,7 +47,7 @@ class RebaserTest extends TestCase {
 					],
 					[
 						'o' => [
-							3, [ '', 'a' ],6
+							3, [ '', 'a' ], 6
 						],
 						'a' => 1
 					]
@@ -55,7 +55,7 @@ class RebaserTest extends TestCase {
 				new Change( 2, [
 					[
 						'o' => [
-							3, [ '', 'b' ],6
+							3, [ '', 'b' ], 6
 						],
 						'a' => 2
 					]
@@ -65,7 +65,7 @@ class RebaserTest extends TestCase {
 					'start' => 4,
 					'tx' => [
 						'o' => [
-							3, [ '', 'b' ],6
+							3, [ '', 'b' ], 6
 						],
 						'a' => 2
 					]
