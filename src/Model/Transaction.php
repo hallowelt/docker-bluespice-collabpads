@@ -10,15 +10,15 @@ class Transaction implements \JsonSerializable {
 	private $operations;
 
 	/**
-	 * @var int
+	 * @var int|null
 	 */
 	private $author;
 
 	/**
 	 * @param array $operations
-	 * @param int $author
+	 * @param int|null $author
 	 */
-	public function __construct( array $operations, int $author ) {
+	public function __construct( array $operations, ?int $author = null ) {
 		$this->operations = $operations;
 		$this->author = $author;
 	}
@@ -28,7 +28,12 @@ class Transaction implements \JsonSerializable {
 	 * @return Transaction
 	 */
 	public static function fromMinified( $data ): Transaction {
-		$operations = static::deminifyOperations( $data );
+		if ( !isset( $data['o'] ) ) {
+			$a = $data['a'] ?? null;
+			unset( $data['a'] );
+			return new Transaction( static::deminifyOperations( $data ), $a );
+		}
+		$operations = static::deminifyOperations( $data['o'] );
 		return new Transaction( $operations, $data['a'] );
 	}
 
@@ -82,18 +87,17 @@ class Transaction implements \JsonSerializable {
 	}
 
 	/**
-	 * @return int
+	 * @return int|null
 	 */
-	public function getAuthor(): int {
+	public function getAuthor(): ?int {
 		return $this->author;
 	}
 
 	/**
-	 * @param array $data
+	 * @param array $ops
 	 * @return array
 	 */
-	private static function deminifyOperations( array $data ) {
-		$ops = $data['o'];
+	private static function deminifyOperations( array $ops ) {
 		$expanded = [];
 		foreach ( $ops as $op ) {
 			if ( is_numeric( $op ) ) {
@@ -107,7 +111,8 @@ class Transaction implements \JsonSerializable {
 					'insert' => static::deminifyLinearData( $op[1] )
 				];
 			} else {
-				$expanded[] = $op;
+				// Clone $op
+				$expanded[] = array_merge( [], $op );
 			}
 		}
 
