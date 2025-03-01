@@ -195,7 +195,7 @@ class MongoDBCollabSessionDAO extends MongoDBDAOBase implements ICollabSessionDA
 			foreach ( $row['s_authors'] as $key => $author ) {
 				if ( $author && ( $author['active'] === true ) ) {
 					$output[] = [
-						'id' => $key,
+						'id' => $row['s_authors'][$key]['authorId'],
 						'value' => $row['s_authors'][$key]
 					];
 				}
@@ -218,7 +218,7 @@ class MongoDBCollabSessionDAO extends MongoDBDAOBase implements ICollabSessionDA
 			foreach ( $row['s_authors'] as $key => $author ) {
 				if ( $author && ( $author['authorId'] === $authorId ) ) {
 					return [
-						'id' => $key,
+						'id' => $row['s_authors'][$key]['authorId'],
 						'value' => $row['s_authors'][$key]
 					];
 				}
