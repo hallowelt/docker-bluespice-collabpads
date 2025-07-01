@@ -73,7 +73,7 @@ class MongoDBCollabSessionDAO extends MongoDBDAOBase implements ICollabSessionDA
 	 * @inheritDoc
 	 */
 	public function setNewAuthorInSession(
-		int $sessionId, int $authorId, string $authorName,
+		int $sessionId, int $authorId, string $authorName, string $authorRealName,
 		string $authorColor, bool $authorStatus, int $connectionId
 	) {
 		$this->collection->updateOne(
@@ -82,6 +82,7 @@ class MongoDBCollabSessionDAO extends MongoDBDAOBase implements ICollabSessionDA
 				's_authors' => [
 					'authorId' => $authorId,
 					'name' => $authorName,
+					'realName' => $authorRealName,
 					'color' => $authorColor,
 					'active' => $authorStatus,
 					'connection' => [ $connectionId ]
