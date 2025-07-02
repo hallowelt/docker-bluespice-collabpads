@@ -24,5 +24,6 @@ return [
 	'db-password' => getenv( 'COLLABPADS_BACKEND_MONGO_DB_PASSWORD' ) ?: '',
 	'db-defaultauthdb' => getenv( 'COLLABPADS_BACKEND_MONGO_DB_DEFAULT_AUTH_DB' ) ?: 'admin',
 	'log-level' => getenv( 'COLLABPADS_BACKEND_LOG_LEVEL' ) ?: 'warn',
-	'http-client-options' => $httpClientOptions
+	'http-client-options' => $httpClientOptions,
+	'behaviourOnError' => getenv( 'COLLBAPADS_BACKEND_BEHAVIOUR_ON_ERROR' ) ?: 'reinit',
 ];
