@@ -13,10 +13,11 @@ services:
       COLLABPADS_BACKEND_MONGO_DB_PASSWORD: ${COLLABPADS_BACKEND_MONGO_DB_PASSWORD}
       COLLABPADS_BACKEND_LOG_LEVEL: ${COLLABPADS_BACKEND_LOG_LEVEL}
       COLLABPADS_BACKEND_HTTP_CLIENT_OPTIONS: ${COLLABPADS_BACKEND_HTTP_CLIENT_OPTIONS}
+      COLLBAPADS_BACKEND_BEHAVIOUR_ON_ERROR: ${COLLBAPADS_BACKEND_BEHAVIOUR_ON_ERROR}
     extra_hosts:
       - "host.docker.internal:host-gateway"
   collabpads-database:
-    image: mongo:8
+    image: mongo:4.4-focal
     volumes:
       - ./mongo:/data/db
 #  mongo-express:
