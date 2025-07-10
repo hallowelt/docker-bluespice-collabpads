@@ -20,13 +20,12 @@ interface ICollabSessionDAO {
 	 * @param int $sessionId
 	 * @param int $authorId
 	 * @param string $authorName
-	 * @param string $authorRealName
 	 * @param string $authorColor
 	 * @param bool $authorStatus
 	 * @param int $connectionId
 	 */
 	public function setNewAuthorInSession(
-		int $sessionId, int $authorId, string $authorName, string $authorRealName,
+		int $sessionId, int $authorId, string $authorName,
 		string $authorColor, bool $authorStatus, int $connectionId
 	);
 
