@@ -3,7 +3,7 @@ COPY bin /usr/src/CollabpadsBackend/bin
 COPY src /usr/src/CollabpadsBackend/src
 COPY composer.json /usr/src/CollabpadsBackend/
 COPY config.docker.php /usr/src/CollabpadsBackend/config.php
-RUN cd /usr/src/CollabpadsBackend/ && composer update --no-dev --ignore-platform-req ext-mongodb
+RUN cd /usr/src/CollabpadsBackend/ && composer update --no-dev --ignore-platform-req ext-mongodb --no-blocking
 
 FROM php:8.3-cli-alpine
 ADD --chmod=0755 https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
